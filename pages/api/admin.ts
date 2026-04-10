@@ -10,7 +10,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: 'Wrong password' });
 
   try {
-    const state = await getUpstashState();
+    const state: any = await getUpstashState();
 
     if (action === 'open') {
       state.status = 'open';
