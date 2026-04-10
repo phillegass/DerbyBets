@@ -206,12 +206,16 @@ export default function Admin() {
         </div>
 
         <div style={s.fieldLabel}>Rake %</div>
-        <div style={{ display:'flex', gap:8, marginBottom:16 }}>
+        <div style={{ display:'flex', gap:8, marginBottom:16, alignItems:'center' }}>
           <input type="number" min={0} max={50} value={rakeInput}
             onChange={e => setRakeInput(e.target.value)}
-            style={{ ...s.input, flex:1, marginBottom:0 }} />
-          <button style={{ ...s.btn('#555'), flex:'none' as any, padding:'10px 16px' }}
-            onClick={() => action({ action:'setRake', rake: Number(rakeInput) })}>Set</button>
+            style={{ width:80, background:'#2a2a2a', border:'1px solid #444', borderRadius:8, padding:'10px 12px', color:'#eee', fontSize:15, outline:'none' }} />
+          <button
+            onClick={() => action({ action:'setRake', rake: Number(rakeInput) })}
+            style={{ background:'#555', color:'#fff', border:'none', borderRadius:8, padding:'10px 20px', cursor:'pointer', fontSize:14, fontWeight:600 }}>
+            Set Rake
+          </button>
+          <span style={{ opacity:0.5, fontSize:13 }}>now: {state.rake}%</span>
         </div>
 
         <div style={s.fieldLabel}>Declare Winner</div>
@@ -310,6 +314,6 @@ const s = {
   card: { background:'#1e1e1e', borderRadius:12, padding:16, marginBottom:16, border:'1px solid #2a2a2a' },
   cardTitle: { color:'#d4af37', fontSize:15, fontWeight:700, marginBottom:12 },
   fieldLabel: { fontSize:12, opacity:0.5, marginBottom:6, textTransform:'uppercase' as const, letterSpacing:'0.06em' },
-  btn: (bg: string) => ({ display:'block', width:'100%', padding:'11px 12px', background:bg, color:'#fff', border:'none', borderRadius:8, cursor:'pointer', fontSize:14, fontWeight:600 } as React.CSSProperties),
+  btn: (bg: string) => ({ display:'block', width:'100%', padding:'11px 12px', background:bg, color:'#fff', border:'none', borderRadius:8, cursor:'pointer', fontSize:14, fontWeight:600, boxSizing:'border-box' } as React.CSSProperties),
   input: { width:'100%', boxSizing:'border-box' as const, background:'#2a2a2a', border:'1px solid #444', borderRadius:8, padding:'10px 12px', color:'#eee', fontSize:15, marginBottom:8, outline:'none' },
 };
