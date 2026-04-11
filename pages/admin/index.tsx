@@ -1,62 +1,53 @@
 import { useState, useEffect, useCallback } from 'react';
 import Head from 'next/head';
 
-const HORSES = [
-  { id: 1, number: 1, name: "Sovereignty", jockey: "J. Velazquez", color: "#c0392b" },
-  { id: 2, number: 2, name: "Journalism", jockey: "F. Prat", color: "#e67e22" },
-  { id: 3, number: 3, name: "Rodriguez", jockey: "L. Saez", color: "#f1c40f" },
-  { id: 4, number: 4, name: "Baeza", jockey: "B. Hernandez", color: "#2ecc71" },
-  { id: 5, number: 5, name: "Chunk of Gold", jockey: "I. Ortiz Jr.", color: "#1abc9c" },
-  { id: 6, number: 6, name: "American Promise", jockey: "M. Smith", color: "#3498db" },
-  { id: 7, number: 7, name: "River Thames", jockey: "D. Van Dyke", color: "#9b59b6" },
-  { id: 8, number: 8, name: "Sandman", jockey: "T. Gaffalione", color: "#e91e63" },
-  { id: 9, number: 9, name: "Herecomesthebride", jockey: "J. Rosario", color: "#ff5722" },
-  { id: 10, number: 10, name: "Flying Mohawk", jockey: "O. Bocachica", color: "#607d8b" },
-  { id: 11, number: 11, name: "Luxor Cafe", jockey: "C. Lanerie", color: "#795548" },
-  { id: 12, number: 12, name: "Grande Reserve", jockey: "M. Franco", color: "#009688" },
-  { id: 13, number: 13, name: "Tiztastic", jockey: "E. Cancel", color: "#673ab7" },
-  { id: 14, number: 14, name: "Clever Again", jockey: "R. Santana Jr.", color: "#2196f3" },
-  { id: 15, number: 15, name: "Steam Engine", jockey: "J. Castellano", color: "#4caf50" },
-  { id: 16, number: 16, name: "Noble Reggie", jockey: "P. Lopez", color: "#ff9800" },
-  { id: 17, number: 17, name: "Ammo", jockey: "J. Graham", color: "#f44336" },
-  { id: 18, number: 18, name: "Burnham Square", jockey: "K. Carmouche", color: "#9c27b0" },
-  { id: 19, number: 19, name: "Netspend", jockey: "A. Beschizza", color: "#00bcd4" },
-  { id: 20, number: 20, name: "Render Judgment", jockey: "C. Velasquez", color: "#8bc34a" },
-];
+const HORSES: Record<number, {number: number; name: string; color: string}> = {
+  1:  {number:1,  name:"Sovereignty",      color:"#c0392b"},
+  2:  {number:2,  name:"Journalism",        color:"#e67e22"},
+  3:  {number:3,  name:"Rodriguez",         color:"#c8a800"},
+  4:  {number:4,  name:"Baeza",             color:"#27ae60"},
+  5:  {number:5,  name:"Chunk of Gold",     color:"#16a085"},
+  6:  {number:6,  name:"American Promise",  color:"#2980b9"},
+  7:  {number:7,  name:"River Thames",      color:"#8e44ad"},
+  8:  {number:8,  name:"Sandman",           color:"#c0136c"},
+  9:  {number:9,  name:"Herecomesthebride", color:"#d35400"},
+  10: {number:10, name:"Flying Mohawk",     color:"#546e7a"},
+  11: {number:11, name:"Luxor Cafe",        color:"#5d4037"},
+  12: {number:12, name:"Grande Reserve",    color:"#00796b"},
+  13: {number:13, name:"Tiztastic",         color:"#512da8"},
+  14: {number:14, name:"Clever Again",      color:"#1565c0"},
+  15: {number:15, name:"Steam Engine",      color:"#388e3c"},
+  16: {number:16, name:"Noble Reggie",      color:"#e65100"},
+  17: {number:17, name:"Ammo",              color:"#c62828"},
+  18: {number:18, name:"Burnham Square",    color:"#6a1b9a"},
+  19: {number:19, name:"Netspend",          color:"#00838f"},
+  20: {number:20, name:"Render Judgment",   color:"#558b2f"},
+};
 
-interface Bet { id: string; bettor: string; horseId: number; amount: number; }
+interface Bet { id: string; bettor: string; phone: string; horseId: number; amount: number; }
 interface State { status: string; bets: Bet[]; rake: number; winnerHorseId?: number; }
 interface Pool { total: number; payoutPool: number; byHorse: Record<number,number>; odds: Record<number,number>; }
 
-function safePool(pool: any): Pool {
-  return {
-    total: pool?.total ?? 0,
-    payoutPool: pool?.payoutPool ?? 0,
-    byHorse: pool?.byHorse ?? {},
-    odds: pool?.odds ?? {},
-  };
-}
-
-function safeState(state: any): State {
-  return {
-    status: state?.status ?? 'open',
-    bets: Array.isArray(state?.bets) ? state.bets : [],
-    rake: state?.rake ?? 15,
-    winnerHorseId: state?.winnerHorseId,
-  };
+function oddsLabel(m: number) {
+  if (!m || m <= 0) return '—';
+  const x = m - 1; if (x <= 0) return '1:1';
+  const d = 10, n = Math.round(x * d);
+  const g = (a: number, b: number): number => b === 0 ? a : g(b, a % b);
+  const gg = g(n, d); return `${n/gg}:${d/gg}`;
 }
 
 function computePayout(bets: Bet[], winnerId: number, rake: number, bettor: string): number {
   try {
-    const winnerBets = bets.filter(b => b.horseId === winnerId);
-    const total = bets.reduce((s, b) => s + (b.amount || 0), 0);
+    const total = bets.reduce((s, b) => s + b.amount, 0);
     const payoutPool = total * (1 - rake / 100);
-    const totalOnWinner = winnerBets.reduce((s, b) => s + (b.amount || 0), 0);
-    const myAmount = winnerBets.filter(b => b.bettor === bettor).reduce((s, b) => s + (b.amount || 0), 0);
+    const totalOnWinner = bets.filter(b => b.horseId === winnerId).reduce((s, b) => s + b.amount, 0);
+    const myAmount = bets.filter(b => b.horseId === winnerId && b.bettor === bettor).reduce((s, b) => s + b.amount, 0);
     if (totalOnWinner === 0 || myAmount === 0) return 0;
     return (myAmount / totalOnWinner) * payoutPool;
   } catch { return 0; }
 }
+
+type AdminView = 'summary' | 'users' | 'controls';
 
 export default function Admin() {
   const [password, setPassword] = useState('');
@@ -69,6 +60,9 @@ export default function Admin() {
   const [msgOk, setMsgOk] = useState(true);
   const [rakeInput, setRakeInput] = useState('15');
   const [winnerSelect, setWinnerSelect] = useState(1);
+  const [view, setView] = useState<AdminView>('summary');
+  const [expandedUser, setExpandedUser] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -82,13 +76,16 @@ export default function Admin() {
       const res = await fetch('/api/race');
       const json = await res.json();
       if (json.error) { setFetchError(json.error); return; }
-      setState(safeState(json.state));
-      setPool(safePool(json.pool));
+      setState({
+        status: json.state?.status ?? 'open',
+        bets: Array.isArray(json.state?.bets) ? json.state.bets : [],
+        rake: json.state?.rake ?? 15,
+        winnerHorseId: json.state?.winnerHorseId,
+      });
+      setPool({ total: json.pool?.total ?? 0, payoutPool: json.pool?.payoutPool ?? 0, byHorse: json.pool?.byHorse ?? {}, odds: json.pool?.odds ?? {} });
       setFetchError('');
       if (json.state?.rake != null) setRakeInput(String(json.state.rake));
-    } catch (e: any) {
-      setFetchError('Could not reach server: ' + (e?.message || 'network error'));
-    }
+    } catch (e: any) { setFetchError('Could not reach server'); }
   }, []);
 
   useEffect(() => {
@@ -101,8 +98,7 @@ export default function Admin() {
   const login = () => {
     if (!password.trim()) return;
     try { localStorage.setItem('derby_admin_pw', password); } catch {}
-    setSavedPw(password);
-    setAuthed(true);
+    setSavedPw(password); setAuthed(true);
   };
 
   const logout = () => {
@@ -110,12 +106,11 @@ export default function Admin() {
     setAuthed(false); setSavedPw(''); setPassword(''); setState(null); setPool(null);
   };
 
-  const action = async (body: object) => {
+  const doAction = async (body: object) => {
     setMsg(''); setMsgOk(true);
     try {
       const res = await fetch('/api/admin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ password: savedPw, ...body }),
       });
       const json = await res.json();
@@ -124,196 +119,285 @@ export default function Admin() {
     } catch { setMsg('Network error — try again'); setMsgOk(false); }
   };
 
+  const doDelete = async (body: object, label: string) => {
+    if (!confirm(`Delete ${label}?`)) return;
+    setDeleting(label);
+    try {
+      const res = await fetch('/api/delete', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ password: savedPw, ...body }),
+      });
+      const json = await res.json();
+      if (json.error) alert(json.error);
+      else { fetchData(); setExpandedUser(null); }
+    } catch { alert('Network error'); }
+    setDeleting(null);
+  };
+
   // ── Login ──
   if (!authed) return (
     <div style={s.page}>
       <Head><title>Admin – Derby</title></Head>
       <div style={s.loginBox}>
-        <div style={s.loginTitle}>🏇 Host Admin</div>
+        <div style={s.loginTitle}>🌹 Host Admin</div>
         <input type="password" placeholder="Password" value={password}
           onChange={e => setPassword(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && login()}
           style={s.input} autoFocus />
-        <button style={s.btn('#8B0000')} onClick={login}>Enter →</button>
+        <button style={s.redBtn} onClick={login}>Enter →</button>
       </div>
     </div>
   );
 
-  // ── Loading / Error ──
   if (!state || !pool) return (
     <div style={s.page}>
       <Head><title>Admin – Derby</title></Head>
-      <div style={{ textAlign: 'center', paddingTop: 80 }}>
+      <div style={{textAlign:'center', paddingTop:80}}>
         {fetchError
-          ? <><div style={{ color: '#ff8080', marginBottom: 16 }}>{fetchError}</div>
-              <button style={s.btn('#555')} onClick={fetchData}>Retry</button>
+          ? <><div style={{color:'#c00', marginBottom:12}}>{fetchError}</div>
+              <button style={s.redBtn} onClick={fetchData}>Retry</button>
               <br/><br/>
-              <button style={{ ...s.btn('#333'), maxWidth: 160 }} onClick={logout}>← Log out</button></>
-          : <div style={{ opacity: 0.5 }}>Loading…</div>}
+              <button style={{...s.grayBtn, maxWidth:140}} onClick={logout}>← Log out</button></>
+          : <div style={{color:'#888'}}>Loading…</div>}
       </div>
     </div>
   );
 
-  // ── Payouts ──
-  const payoutsByBettor: Record<string, number> = {};
+  // Build user summary
+  const userMap: Record<string, {phone:string; bets:Bet[]; total:number}> = {};
+  for (const bet of state.bets) {
+    if (!userMap[bet.bettor]) userMap[bet.bettor] = {phone: bet.phone || '', bets:[], total:0};
+    userMap[bet.bettor].bets.push(bet);
+    userMap[bet.bettor].total += bet.amount;
+    if (bet.phone) userMap[bet.bettor].phone = bet.phone;
+  }
+  const users = Object.entries(userMap).sort((a, b) => b[1].total - a[1].total);
+
+  // Payouts
+  const payoutsByBettor: Record<string,number> = {};
   if (state.status === 'finished' && state.winnerHorseId) {
-    const bettors = [...new Set((state.bets || []).map(b => b.bettor))];
-    for (const bettor of bettors) {
-      try {
-        payoutsByBettor[bettor] = computePayout(state.bets, state.winnerHorseId, state.rake, bettor);
-      } catch {}
+    for (const [bettor] of users) {
+      payoutsByBettor[bettor] = computePayout(state.bets, state.winnerHorseId, state.rake, bettor);
     }
   }
-
-  const totalPayouts = Object.values(payoutsByBettor).reduce((s, v) => s + v, 0);
-  const houseProfit = state.status === 'finished'
-    ? (pool.total - totalPayouts)
-    : (pool.total * state.rake / 100);
-
-  const statusColor = state.status === 'open' ? '#7fff7f' : state.status === 'closed' ? '#ff8080' : '#d4af37';
+  const totalPayouts = Object.values(payoutsByBettor).reduce((s,v) => s+v, 0);
+  const houseProfit = state.status === 'finished' ? pool.total - totalPayouts : pool.total * state.rake / 100;
+  const statusColor = state.status === 'open' ? '#1a6b00' : state.status === 'closed' ? '#c00' : '#8B0000';
 
   return (
     <div style={s.page}>
       <Head><title>Admin – Derby</title></Head>
 
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
-        <h1 style={s.title}>🏇 Host Dashboard</h1>
-        <button style={{ background:'#222', border:'1px solid #444', color:'#aaa', borderRadius:6, padding:'6px 12px', cursor:'pointer', fontSize:12 }} onClick={logout}>Log out</button>
+      {/* Header */}
+      <div style={s.adminHeader}>
+        <div style={{fontWeight:700, fontSize:16, color:'#fff'}}>🌹 Host Dashboard</div>
+        <button style={s.logoutBtn} onClick={logout}>Log out</button>
       </div>
 
       {fetchError && (
-        <div style={{ background:'rgba(200,0,0,0.15)', border:'1px solid #c00', color:'#ff8080', borderRadius:8, padding:'10px 14px', marginBottom:16, fontSize:13 }}>
-          ⚠️ {fetchError} — <span style={{ textDecoration:'underline', cursor:'pointer' }} onClick={fetchData}>retry</span>
-        </div>
+        <div style={s.errorBar}>⚠️ {fetchError} — <span style={{textDecoration:'underline', cursor:'pointer'}} onClick={fetchData}>retry</span></div>
       )}
 
-      {/* Pool */}
-      <div style={s.card}>
-        <div style={s.cardTitle}>Pool Summary</div>
-        <Row label="Status"><strong style={{ color: statusColor }}>{state.status.toUpperCase()}</strong></Row>
-        <Row label="Total in Pool"><strong>${(pool.total || 0).toFixed(2)}</strong></Row>
-        <Row label={`Bets placed`}><strong>{(state.bets || []).length}</strong></Row>
-        <Row label={`Your cut (${state.rake}% rake)`}><strong style={{ color:'#7fff7f' }}>${(houseProfit || 0).toFixed(2)}</strong></Row>
-        <Row label="Winner payout pool"><strong>${(pool.payoutPool || 0).toFixed(2)}</strong></Row>
-      </div>
-
-      {/* Controls */}
-      <div style={s.card}>
-        <div style={s.cardTitle}>Race Controls</div>
-        <div style={{ display:'flex', gap:8, marginBottom:16 }}>
-          <button style={s.btn('#1a5c00')} onClick={() => action({ action:'open' })}>🟢 Open Betting</button>
-          <button style={s.btn('#8B0000')} onClick={() => action({ action:'close' })}>🔴 Close Betting</button>
-        </div>
-
-        <div style={s.fieldLabel}>Rake %</div>
-        <div style={{ display:'flex', gap:8, marginBottom:16, alignItems:'center' }}>
-          <input type="number" min={0} max={50} value={rakeInput}
-            onChange={e => setRakeInput(e.target.value)}
-            style={{ width:80, background:'#2a2a2a', border:'1px solid #444', borderRadius:8, padding:'10px 12px', color:'#eee', fontSize:15, outline:'none' }} />
-          <button
-            onClick={() => action({ action:'setRake', rake: Number(rakeInput) })}
-            style={{ background:'#555', color:'#fff', border:'none', borderRadius:8, padding:'10px 20px', cursor:'pointer', fontSize:14, fontWeight:600 }}>
-            Set Rake
+      {/* Tab Nav */}
+      <div style={s.tabs}>
+        {(['summary','users','controls'] as AdminView[]).map(t => (
+          <button key={t} style={s.tab(view === t)} onClick={() => setView(t)}>
+            {t === 'summary' ? '📊 Pool' : t === 'users' ? `👥 Bettors (${users.length})` : '⚙️ Controls'}
           </button>
-          <span style={{ opacity:0.5, fontSize:13 }}>now: {state.rake}%</span>
-        </div>
-
-        <div style={s.fieldLabel}>Declare Winner</div>
-        <select value={winnerSelect} onChange={e => setWinnerSelect(Number(e.target.value))}
-          style={{ ...s.input, marginBottom:8 }}>
-          {HORSES.map(h => <option key={h.id} value={h.id}>#{h.number} {h.name}</option>)}
-        </select>
-        <button style={{ ...s.btn('#7a5c00'), marginBottom:16 }}
-          onClick={() => action({ action:'setWinner', winnerHorseId: winnerSelect })}>
-          🏁 Declare Winner
-        </button>
-
-        <button style={s.btn('#2a2a2a')}
-          onClick={() => { if (confirm('Clear ALL bets and reopen betting?')) action({ action:'reset' }); }}>
-          🔄 Reset Race (clear all bets)
-        </button>
-
-        {msg && (
-          <div style={{ marginTop:12, padding:'8px 12px', background:'#222', borderRadius:6, fontSize:13, color: msgOk ? '#7fff7f' : '#ff8080' }}>
-            {msg}
-          </div>
-        )}
+        ))}
       </div>
 
-      {/* Payouts */}
-      {state.status === 'finished' && Object.keys(payoutsByBettor).length > 0 && (
-        <div style={s.card}>
-          <div style={s.cardTitle}>💰 Payouts to Make</div>
-          {Object.entries(payoutsByBettor)
-            .filter(([, v]) => v > 0)
-            .sort((a, b) => b[1] - a[1])
-            .map(([bettor, payout]) => (
-              <Row key={bettor} label={bettor}>
-                <strong style={{ color:'#7fff7f' }}>${payout.toFixed(2)}</strong>
-              </Row>
-            ))}
-          <Row label="Your profit"><strong style={{ color:'#d4af37' }}>${(houseProfit || 0).toFixed(2)}</strong></Row>
-        </div>
-      )}
+      {/* ── SUMMARY TAB ── */}
+      {view === 'summary' && (
+        <div style={s.section}>
+          <div style={s.statCard}>
+            <Row label="Status"><strong style={{color:statusColor}}>{state.status.toUpperCase()}</strong></Row>
+            <Row label="Total in Pool"><strong>${pool.total.toFixed(2)}</strong></Row>
+            <Row label="Bets placed"><strong>{state.bets.length}</strong></Row>
+            <Row label={`Your cut (${state.rake}% rake)`}><strong style={{color:'#1a6b00'}}>${houseProfit.toFixed(2)}</strong></Row>
+            <Row label="Winner payout pool"><strong>${pool.payoutPool.toFixed(2)}</strong></Row>
+          </div>
 
-      {/* Odds */}
-      {Object.keys(pool.byHorse || {}).length > 0 && (
-        <div style={s.card}>
-          <div style={s.cardTitle}>Odds Board</div>
-          {HORSES.filter(h => (pool.byHorse || {})[h.id])
-            .sort((a, b) => ((pool.byHorse || {})[b.id] || 0) - ((pool.byHorse || {})[a.id] || 0))
-            .map(h => (
-              <div key={h.id} style={{ display:'flex', gap:8, padding:'7px 0', borderBottom:'1px solid #2a2a2a', fontSize:14, alignItems:'center' }}>
-                <span style={{ background:h.color, color:'#fff', borderRadius:4, padding:'1px 6px', fontSize:11, fontWeight:700 }}>#{h.number}</span>
-                <span style={{ flex:1 }}>{h.name}</span>
-                <span style={{ opacity:0.6 }}>${((pool.byHorse || {})[h.id] || 0).toFixed(0)}</span>
-                <strong style={{ color:'#d4af37', minWidth:40, textAlign:'right' }}>
-                  {(pool.odds || {})[h.id] ? `${(pool.odds[h.id]).toFixed(2)}x` : '—'}
-                </strong>
+          {state.status === 'finished' && Object.keys(payoutsByBettor).length > 0 && (
+            <div style={s.card}>
+              <div style={s.cardTitle}>💰 Payouts to Make</div>
+              {Object.entries(payoutsByBettor).filter(([,v]) => v > 0).sort((a,b) => b[1]-a[1]).map(([bettor, payout]) => (
+                <Row key={bettor} label={bettor}><strong style={{color:'#1a6b00'}}>${payout.toFixed(2)}</strong></Row>
+              ))}
+              <Row label="Your profit"><strong style={{color:'#8B0000'}}>${houseProfit.toFixed(2)}</strong></Row>
+            </div>
+          )}
+
+          {Object.keys(pool.byHorse).length > 0 && (
+            <div style={s.card}>
+              <div style={s.cardTitle}>Odds Board</div>
+              <div style={{display:'flex', fontSize:11, fontWeight:700, color:'#aaa', textTransform:'uppercase' as const, letterSpacing:'0.05em', padding:'4px 8px', fontFamily:'sans-serif'}}>
+                <span style={{flex:1}}>Horse</span>
+                <span style={{width:60, textAlign:'center'}}>Pool</span>
+                <span style={{width:55, textAlign:'center'}}>Odds</span>
+                <span style={{width:70, textAlign:'right'}}>$10 pays</span>
               </div>
-            ))}
-        </div>
-      )}
-
-      {/* All Bets */}
-      <div style={s.card}>
-        <div style={s.cardTitle}>All Bets ({(state.bets || []).length})</div>
-        {(state.bets || []).length === 0
-          ? <div style={{ opacity:0.4, fontSize:13 }}>No bets yet</div>
-          : <div style={{ maxHeight:300, overflowY:'auto' }}>
-              {[...(state.bets || [])].reverse().map((bet, i) => {
-                const horse = HORSES.find(h => h.id === bet.horseId);
+              {Object.keys(HORSES).map(hid => {
+                const h = HORSES[Number(hid)];
+                const amt = pool.byHorse[Number(hid)] || 0;
+                const odds = pool.odds[Number(hid)];
+                if (!amt) return null;
                 return (
-                  <div key={bet.id || i} style={{ display:'flex', gap:8, fontSize:13, padding:'6px 0', borderBottom:'1px solid #222' }}>
-                    <span style={{ flex:1 }}>{bet.bettor || '?'}</span>
-                    <span style={{ flex:2, opacity:0.7 }}>#{horse?.number} {horse?.name || '?'}</span>
-                    <strong style={{ color:'#d4af37' }}>${bet.amount || 0}</strong>
+                  <div key={hid} style={{display:'flex', alignItems:'center', padding:'8px', borderBottom:'1px solid #f0f0f0', fontSize:13}}>
+                    <div style={{flex:1, display:'flex', alignItems:'center', gap:6}}>
+                      <span style={{background:h.color, color:'#fff', borderRadius:4, padding:'1px 5px', fontSize:10, fontWeight:700, fontFamily:'sans-serif'}}>#{h.number}</span>
+                      <span style={{fontWeight:600}}>{h.name}</span>
+                    </div>
+                    <span style={{width:60, textAlign:'center', color:'#555', fontFamily:'sans-serif'}}>${amt.toFixed(0)}</span>
+                    <span style={{width:55, textAlign:'center', fontWeight:700, color:'#8B0000', fontFamily:'sans-serif'}}>{odds ? oddsLabel(odds) : '—'}</span>
+                    <span style={{width:70, textAlign:'right', color:'#555', fontFamily:'sans-serif'}}>{odds ? '$'+(10*odds).toFixed(2) : '—'}</span>
                   </div>
                 );
               })}
-            </div>}
-      </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── USERS TAB ── */}
+      {view === 'users' && (
+        <div style={s.section}>
+          {users.length === 0 ? (
+            <div style={{textAlign:'center', padding:'48px 20px', color:'#aaa', fontFamily:'sans-serif'}}>No bets placed yet</div>
+          ) : users.map(([bettor, info]) => {
+            const isExpanded = expandedUser === bettor;
+            const payout = payoutsByBettor[bettor];
+            return (
+              <div key={bettor} style={s.userCard(isExpanded)}>
+                {/* User header row */}
+                <div style={{display:'flex', alignItems:'center', gap:8, cursor:'pointer'}} onClick={() => setExpandedUser(isExpanded ? null : bettor)}>
+                  <div style={{flex:1, minWidth:0}}>
+                    <div style={{fontWeight:700, fontSize:15, color:'#222'}}>{bettor}</div>
+                    <div style={{fontSize:12, color:'#888', fontFamily:'sans-serif', marginTop:1}}>
+                      📱 {info.phone || 'no phone'} · {info.bets.length} bet{info.bets.length !== 1 ? 's' : ''}
+                    </div>
+                  </div>
+                  <div style={{textAlign:'right' as const, flexShrink:0}}>
+                    <div style={{fontWeight:700, fontSize:15, color:'#333'}}>${info.total.toFixed(0)}</div>
+                    {payout > 0 && <div style={{fontSize:12, color:'#1a6b00', fontFamily:'sans-serif', fontWeight:700}}>wins ${payout.toFixed(2)}</div>}
+                  </div>
+                  <div style={{fontSize:18, color:'#ccc', marginLeft:4}}>{isExpanded ? '▲' : '▼'}</div>
+                </div>
+
+                {/* Expanded bets */}
+                {isExpanded && (
+                  <div style={{marginTop:12, borderTop:'1px solid #f0f0f0', paddingTop:12}}>
+                    {info.bets.map(bet => {
+                      const horse = HORSES[bet.horseId];
+                      const isWinner = state.winnerHorseId === bet.horseId;
+                      return (
+                        <div key={bet.id} style={{display:'flex', alignItems:'center', gap:8, padding:'7px 0', borderBottom:'1px solid #f8f8f8'}}>
+                          {horse && <span style={{background:horse.color, color:'#fff', borderRadius:4, padding:'1px 6px', fontSize:11, fontWeight:700, fontFamily:'sans-serif'}}>#{horse.number}</span>}
+                          <span style={{flex:1, fontSize:13, color: isWinner ? '#8B0000' : '#333', fontWeight: isWinner ? 700 : 400}}>
+                            {horse?.name || `Horse #${bet.horseId}`} {isWinner ? '🏆' : ''}
+                          </span>
+                          <span style={{fontSize:13, fontWeight:700, color:'#333', fontFamily:'sans-serif'}}>${bet.amount}</span>
+                          <button
+                            style={s.deleteBtn}
+                            onClick={() => doDelete({action:'deleteBet', betId:bet.id}, `$${bet.amount} bet on ${horse?.name}`)}
+                            disabled={deleting !== null}
+                          >✕</button>
+                        </div>
+                      );
+                    })}
+                    <div style={{marginTop:10, display:'flex', justifyContent:'flex-end'}}>
+                      <button
+                        style={s.deleteUserBtn}
+                        onClick={() => doDelete({action:'deleteUser', bettor}, `all bets for ${bettor}`)}
+                        disabled={deleting !== null}
+                      >
+                        🗑 Remove {bettor} entirely
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── CONTROLS TAB ── */}
+      {view === 'controls' && (
+        <div style={s.section}>
+          <div style={s.card}>
+            <div style={s.cardTitle}>Race Controls</div>
+            <div style={{display:'flex', gap:8, marginBottom:16}}>
+              <button style={s.greenBtn} onClick={() => doAction({action:'open'})}>🟢 Open Betting</button>
+              <button style={s.redBtn} onClick={() => doAction({action:'close'})}>🔴 Close Betting</button>
+            </div>
+
+            <div style={s.fieldLabel}>Rake %</div>
+            <div style={{display:'flex', gap:8, alignItems:'center', marginBottom:16}}>
+              <input type="number" min={0} max={50} value={rakeInput}
+                onChange={e => setRakeInput(e.target.value)}
+                style={{...s.input, width:80, marginBottom:0}} />
+              <button style={{...s.grayBtn, padding:'10px 18px'}}
+                onClick={() => doAction({action:'setRake', rake:Number(rakeInput)})}>
+                Set Rake
+              </button>
+              <span style={{fontSize:13, color:'#888', fontFamily:'sans-serif'}}>current: {state.rake}%</span>
+            </div>
+
+            <div style={s.fieldLabel}>Declare Winner</div>
+            <select value={winnerSelect} onChange={e => setWinnerSelect(Number(e.target.value))}
+              style={{...s.input, marginBottom:8}}>
+              {Object.values(HORSES).map(h => <option key={h.number} value={h.number}>#{h.number} {h.name}</option>)}
+            </select>
+            <button style={{...s.goldBtn, marginBottom:16}} onClick={() => doAction({action:'setWinner', winnerHorseId:winnerSelect})}>
+              🏁 Declare Winner
+            </button>
+
+            <button style={s.grayBtn} onClick={() => { if(confirm('Clear ALL bets and reopen betting?')) doAction({action:'reset'}); }}>
+              🔄 Reset Race (clear all bets)
+            </button>
+
+            {msg && (
+              <div style={{marginTop:12, padding:'8px 12px', background: msgOk ? '#f0fff4' : '#fff5f5', border:`1px solid ${msgOk ? '#b0e0b0' : '#f0b0b0'}`, borderRadius:6, fontSize:13, color: msgOk ? '#1a6b00' : '#c00', fontFamily:'sans-serif'}}>
+                {msg}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
+function Row({label, children}: {label:string; children:React.ReactNode}) {
   return (
-    <div style={{ display:'flex', justifyContent:'space-between', padding:'7px 0', borderBottom:'1px solid #2a2a2a', fontSize:14 }}>
-      <span style={{ opacity:0.7 }}>{label}</span>
+    <div style={{display:'flex', justifyContent:'space-between', padding:'8px 0', borderBottom:'1px solid #f0f0f0', fontSize:14, fontFamily:'sans-serif', color:'#444'}}>
+      <span style={{opacity:0.7}}>{label}</span>
       {children}
     </div>
   );
 }
 
 const s = {
-  page: { minHeight:'100vh', background:'#111', color:'#eee', padding:'20px 16px 60px', fontFamily:'sans-serif', maxWidth:600, margin:'0 auto' } as React.CSSProperties,
-  title: { fontSize:22, color:'#d4af37', margin:0 },
-  loginBox: { maxWidth:300, margin:'80px auto', background:'#1e1e1e', borderRadius:12, padding:28, display:'flex', flexDirection:'column' as const, gap:14 },
-  loginTitle: { color:'#d4af37', fontSize:20, fontWeight:700, textAlign:'center' as const },
-  card: { background:'#1e1e1e', borderRadius:12, padding:16, marginBottom:16, border:'1px solid #2a2a2a' },
-  cardTitle: { color:'#d4af37', fontSize:15, fontWeight:700, marginBottom:12 },
-  fieldLabel: { fontSize:12, opacity:0.5, marginBottom:6, textTransform:'uppercase' as const, letterSpacing:'0.06em' },
-  btn: (bg: string) => ({ display:'block', width:'100%', padding:'11px 12px', background:bg, color:'#fff', border:'none', borderRadius:8, cursor:'pointer', fontSize:14, fontWeight:600, boxSizing:'border-box' } as React.CSSProperties),
-  input: { width:'100%', boxSizing:'border-box' as const, background:'#2a2a2a', border:'1px solid #444', borderRadius:8, padding:'10px 12px', color:'#eee', fontSize:15, marginBottom:8, outline:'none' },
+  page: { minHeight:'100vh', background:'#f5f5f5', color:'#222', fontFamily:'sans-serif', maxWidth:600, margin:'0 auto' } as React.CSSProperties,
+  adminHeader: { background:'#8B0000', padding:'14px 16px', display:'flex', justifyContent:'space-between', alignItems:'center' },
+  logoutBtn: { background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.3)', color:'#fff', borderRadius:6, padding:'5px 12px', cursor:'pointer', fontSize:12 },
+  loginBox: { maxWidth:300, margin:'80px auto', background:'#fff', borderRadius:12, padding:28, boxShadow:'0 2px 12px rgba(0,0,0,0.1)', display:'flex', flexDirection:'column' as const, gap:12 },
+  loginTitle: { color:'#8B0000', fontSize:20, fontWeight:700, textAlign:'center' as const },
+  input: { width:'100%', boxSizing:'border-box' as const, background:'#f5f5f5', border:'1.5px solid #ddd', borderRadius:8, padding:'10px 12px', color:'#222', fontSize:15, outline:'none', fontFamily:'sans-serif' },
+  errorBar: { background:'#fff5f5', border:'1px solid #f0b0b0', color:'#c00', padding:'10px 16px', fontSize:13 },
+  tabs: { display:'flex', background:'#fff', borderBottom:'2px solid #eee' },
+  tab: (active: boolean) => ({ flex:1, padding:'12px 4px', background:'transparent', color: active ? '#8B0000' : '#999', border:'none', borderBottom: active ? '2px solid #8B0000' : '2px solid transparent', cursor:'pointer', fontSize:12, fontWeight: active ? 700 : 400, marginBottom:-2 }),
+  section: { padding:12 },
+  statCard: { background:'#fff', borderRadius:10, padding:'4px 14px 8px', marginBottom:10, boxShadow:'0 1px 3px rgba(0,0,0,0.06)', border:'1px solid #eee' },
+  card: { background:'#fff', borderRadius:10, padding:'14px 14px 8px', marginBottom:10, boxShadow:'0 1px 3px rgba(0,0,0,0.06)', border:'1px solid #eee' },
+  cardTitle: { fontWeight:700, fontSize:14, color:'#8B0000', marginBottom:10 },
+  fieldLabel: { fontSize:11, fontWeight:700, color:'#aaa', textTransform:'uppercase' as const, letterSpacing:'0.06em', marginBottom:6 },
+  userCard: (expanded: boolean) => ({ background:'#fff', borderRadius:10, padding:14, marginBottom:8, border: expanded ? '1.5px solid #d4af37' : '1px solid #eee', boxShadow:'0 1px 3px rgba(0,0,0,0.04)' }),
+  deleteBtn: { background:'#fff5f5', border:'1px solid #f0b0b0', color:'#c00', borderRadius:5, padding:'3px 8px', cursor:'pointer', fontSize:12, fontWeight:700 },
+  deleteUserBtn: { background:'#fff5f5', border:'1px solid #f0b0b0', color:'#c00', borderRadius:7, padding:'8px 14px', cursor:'pointer', fontSize:13, fontWeight:600 },
+  redBtn: { flex:1 as any, display:'block', width:'100%', padding:'11px', background:'#8B0000', color:'#fff', border:'none', borderRadius:8, cursor:'pointer', fontSize:14, fontWeight:600 } as React.CSSProperties,
+  greenBtn: { flex:1, display:'block', width:'100%', padding:'11px', background:'#1a5c00', color:'#fff', border:'none', borderRadius:8, cursor:'pointer', fontSize:14, fontWeight:600 } as React.CSSProperties,
+  goldBtn: { display:'block', width:'100%', padding:'11px', background:'#8B6914', color:'#fff', border:'none', borderRadius:8, cursor:'pointer', fontSize:14, fontWeight:600 } as React.CSSProperties,
+  grayBtn: { display:'block', width:'100%', padding:'11px', background:'#555', color:'#fff', border:'none', borderRadius:8, cursor:'pointer', fontSize:14, fontWeight:600 } as React.CSSProperties,
 };
